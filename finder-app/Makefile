@@ -3,8 +3,8 @@
 INCLUDE_DIRS = 
 LIB_DIRS = 
 # CROSS_COMPILE variable initially set to nothing. Will be over-written if value is passed in the command-line.
-CROSS_COMPILE=
-cc=gcc
+CROSS_COMPILE ?= 
+CC=$(CROSS_COMPILE)gcc
 
 CDEFS=
 # Compile at O0 by default
