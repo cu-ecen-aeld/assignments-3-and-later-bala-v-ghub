@@ -8,5 +8,5 @@ if [ ${rc} -eq 0 ]; then
 else
     echo "Completed with failure, failed with rc=${rc}"
 fi
-echo "finder-app execution complete, dropping to terminal"
-/bin/sh
+echo "finder-app execution complete"
+poweroff -f

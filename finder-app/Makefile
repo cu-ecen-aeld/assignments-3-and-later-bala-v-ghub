@@ -26,9 +26,9 @@ clean:
 
 # native build if no args are passed, build for the specified target in case args are passed.
 writer: writer.o
-	$(CROSS_COMPILE)$(cc) $(LDFLAGS) $(CFLAGS) -o $@ $@.o
+	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $^
 
 depend:
 
 .c.o:
-	$(CROSS_COMPILE)$(cc) $(CFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<

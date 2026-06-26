@@ -48,9 +48,11 @@ then
 		exit 1
 	fi
 fi
-echo "Removing the old writer utility and compiling as a native application"
-make clean
-make
+if command -v make > /dev/null 2>&1; then
+	echo "Removing the old writer utility and compiling as a native application"
+	make clean
+	make
+fi
 
 for i in $( seq 1 $NUMFILES)
 do
