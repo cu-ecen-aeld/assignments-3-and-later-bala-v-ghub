@@ -9,6 +9,10 @@ NUMFILES=10
 WRITESTR=AELD_IS_FUN
 WRITEDIR=/tmp/aeld-data
 
+# Add script's own directory to PATH so writer/finder.sh are found regardless of CWD
+SCRIPT_DIR=$(dirname $(realpath $0))
+export PATH="$SCRIPT_DIR:$PATH"
+
 if [ -f "conf/username.txt" ]; then
     CONF_DIR="conf"
 elif [ -f "../conf/username.txt" ]; then
@@ -68,10 +72,10 @@ fi
 
 for i in $( seq 1 $NUMFILES)
 do
-	./writer "$WRITEDIR/${username}$i.txt" "$WRITESTR"
+	writer "$WRITEDIR/${username}$i.txt" "$WRITESTR"
 done
 
-OUTPUTSTRING=$(./finder.sh "$WRITEDIR" "$WRITESTR")
+OUTPUTSTRING=$(finder.sh "$WRITEDIR" "$WRITESTR")
 
 # remove temporary directories
 rm -rf /tmp/aeld-data
