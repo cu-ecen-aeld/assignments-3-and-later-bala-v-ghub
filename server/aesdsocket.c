@@ -46,7 +46,7 @@ static int send_file(int fd)
     char buf[RECV_BUF];
     size_t n;
     while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
-        if (send(fd, buf, n, 0) == -1) {
+        if (send(fd, buf, n, MSG_NOSIGNAL) == -1) {
             fclose(f);
             return -1;
         }
@@ -142,6 +142,9 @@ int main(int argc, char *argv[])
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT,  &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
+    /* Ignore SIGPIPE so send() returns EPIPE instead of killing the process
+     * when a client closes the connection before we finish sending. */
+    signal(SIGPIPE, SIG_IGN);
 
     /* Resolve address and create socket */
     struct addrinfo hints = {0};
