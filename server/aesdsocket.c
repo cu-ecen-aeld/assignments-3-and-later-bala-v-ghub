@@ -32,7 +32,8 @@ static void cleanup(void)
 {
     if (client_fd != -1) { close(client_fd); client_fd = -1; }
     if (server_fd != -1) { close(server_fd); server_fd = -1; }
-    remove(DATAFILE);
+    if (unlink(DATAFILE) != 0 && errno != ENOENT)
+        syslog(LOG_ERR, "unlink %s: %s", DATAFILE, strerror(errno));
     closelog();
 }
 
