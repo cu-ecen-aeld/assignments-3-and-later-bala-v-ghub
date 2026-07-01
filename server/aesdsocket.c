@@ -117,6 +117,8 @@ static void daemonize(void)
 
     if (setsid() < 0) { perror("setsid"); exit(EXIT_FAILURE); }
 
+    if (chdir("/") < 0) { perror("chdir"); exit(EXIT_FAILURE); }
+
     /* Redirect stdin/stdout/stderr to /dev/null */
     int devnull = open("/dev/null", O_RDWR);
     if (devnull != -1) {
