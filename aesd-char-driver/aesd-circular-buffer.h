@@ -18,7 +18,7 @@
 
 #define AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED 10
 
-struct aesd_buffer_entry
+typedef struct aesd_buffer_entry
 {
     /**
      * A location where the buffer contents in buffptr are stored
@@ -28,7 +28,7 @@ struct aesd_buffer_entry
      * Number of bytes stored in buffptr
      */
     size_t size;
-};
+} Entry;
 
 struct aesd_circular_buffer
 {
