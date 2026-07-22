@@ -10,6 +10,8 @@
 
 #ifdef __KERNEL__
 #include <linux/string.h>
+#include <linux/bug.h>
+#define assert(x) BUG_ON(!(x))
 #else
 #include <string.h>
 #include <assert.h>
