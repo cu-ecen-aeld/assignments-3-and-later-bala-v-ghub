@@ -16,11 +16,20 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
+#ifndef USE_AESD_CHAR_DEVICE
+#define USE_AESD_CHAR_DEVICE 1
+#endif
+
 #define PORT            "9000"
-#define DATAFILE        "/var/tmp/aesdsocketdata"
 #define BACKLOG         10
 #define RECV_BUF        1024
 #define TIMESTAMP_SECS  10
+
+#if USE_AESD_CHAR_DEVICE
+#define DATAFILE        "/dev/aesdchar"
+#else
+#define DATAFILE        "/var/tmp/aesdsocketdata"
+#endif
 
 static int server_fd = -1;
 static volatile sig_atomic_t caught_signal = 0;
@@ -39,8 +48,10 @@ SLIST_HEAD(thread_list_head, thread_entry);
 static struct thread_list_head thread_list = SLIST_HEAD_INITIALIZER(thread_list);
 static pthread_mutex_t thread_list_lock = PTHREAD_MUTEX_INITIALIZER;
 
+#if !USE_AESD_CHAR_DEVICE
 static pthread_t timer_thread;
 static int timer_thread_started = 0;
+#endif
 
 static void signal_handler(int signo)
 {
@@ -185,6 +196,7 @@ static void join_all_threads(void)
     pthread_mutex_unlock(&thread_list_lock);
 }
 
+#if !USE_AESD_CHAR_DEVICE
 static void *timer_thread_func(void *arg)
 {
     (void)arg;
@@ -217,21 +229,29 @@ static void *timer_thread_func(void *arg)
     }
     return NULL;
 }
+#endif
 
 static void cleanup(void)
 {
     join_all_threads();
 
+#if !USE_AESD_CHAR_DEVICE
     if (timer_thread_started)
         pthread_join(timer_thread, NULL);
+#endif
 
     if (server_fd != -1)
     {
         close(server_fd);
         server_fd = -1;
     }
+
+#if !USE_AESD_CHAR_DEVICE
+    /* /dev/aesdchar is a device node owned by the kernel driver, not a
+     * regular file we created; never unlink it. */
     if (unlink(DATAFILE) != 0 && errno != ENOENT)
         syslog(LOG_ERR, "unlink %s: %s", DATAFILE, strerror(errno));
+#endif
     closelog();
 }
 
@@ -338,15 +358,17 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+#if !USE_AESD_CHAR_DEVICE
     /* Timer thread must be started after daemonize() (fork) so it lives in
      * the running daemon process, not the parent that immediately exits. */
-    if (pthread_create(&timer_thread, NULL, timer_thread_func, NULL) != 0) 
+    if (pthread_create(&timer_thread, NULL, timer_thread_func, NULL) != 0)
     {
         syslog(LOG_ERR, "pthread_create (timer): %s", strerror(errno));
         cleanup();
         return -1;
     }
     timer_thread_started = 1;
+#endif
 
     while (!caught_signal) 
     {

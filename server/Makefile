@@ -1,6 +1,7 @@
 CROSS_COMPILE ?=
 CC = $(CROSS_COMPILE)gcc
-CFLAGS = -Wall -Wextra -g -pthread
+USE_AESD_CHAR_DEVICE ?= 1
+CFLAGS = -Wall -Wextra -g -pthread -DUSE_AESD_CHAR_DEVICE=$(USE_AESD_CHAR_DEVICE)
 LDFLAGS = -pthread
 
 TARGET = aesdsocket
