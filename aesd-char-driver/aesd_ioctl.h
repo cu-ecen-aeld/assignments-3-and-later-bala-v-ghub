@@ -27,7 +27,8 @@ struct aesd_seekto
     uint32_t write_cmd_offset;
 };
 
-#define AESD_IOC_MAGIC 0xaeb
+/* _IOC_TYPE is only 8 bits wide on Linux; must fit in one byte. */
+#define AESD_IOC_MAGIC 0xea
 
 #define AESDCHAR_IOCSEEKTO _IOWR(AESD_IOC_MAGIC, 1, struct aesd_seekto)
 
