@@ -20,6 +20,11 @@
 #define USE_AESD_CHAR_DEVICE 1
 #endif
 
+#if USE_AESD_CHAR_DEVICE
+#include <sys/ioctl.h>
+#include "aesd_ioctl.h"
+#endif
+
 #define PORT            "9000"
 #define BACKLOG         10
 #define RECV_BUF        1024
@@ -59,6 +64,21 @@ static void signal_handler(int signo)
     caught_signal = 1;
 }
 
+#if USE_AESD_CHAR_DEVICE
+/* Send DATAFILE contents to the client starting at data_fd's current file
+ * offset through EOF. Caller must hold file_lock. */
+static int send_device_contents(int data_fd, int client_fd)
+{
+    char buf[RECV_BUF];
+    ssize_t n;
+    while ((n = read(data_fd, buf, sizeof(buf))) > 0)
+    {
+        if (send(client_fd, buf, (size_t)n, MSG_NOSIGNAL) == -1)
+            return -1;
+    }
+    return (n < 0) ? -1 : 0;
+}
+#else
 /* Send entire contents of DATAFILE back to the client. Caller must hold file_lock. */
 static int send_file(int fd)
 {
@@ -80,6 +100,7 @@ static int send_file(int fd)
     fclose(f);
     return 0;
 }
+#endif
 
 /* Handle one accepted connection: receive packets, append, send back. */
 static void handle_connection(int fd, const char *client_ip)
@@ -87,6 +108,9 @@ static void handle_connection(int fd, const char *client_ip)
     char   recv_buf[RECV_BUF];
     char  *packet   = NULL;
     size_t pkt_len  = 0;
+#if USE_AESD_CHAR_DEVICE
+    int    data_fd  = -1; /* opened lazily on first access to the driver */
+#endif
 
     for (;;)
     {
@@ -114,8 +138,64 @@ static void handle_connection(int fd, const char *client_ip)
         {
             size_t line_len = (size_t)(nl - start) + 1; /* include newline */
 
+#if USE_AESD_CHAR_DEVICE
+            {
+                char linebuf[128];
+                size_t copy_len = line_len < sizeof(linebuf) - 1 ? line_len : sizeof(linebuf) - 1;
+                unsigned long seek_cmd, seek_offset;
+
+                memcpy(linebuf, start, copy_len);
+                linebuf[copy_len] = '\0';
+
+                if (sscanf(linebuf, "AESDCHAR_IOCSEEKTO:%lu,%lu", &seek_cmd, &seek_offset) == 2)
+                {
+                    /* Seek request: perform the ioctl and echo back the
+                     * device contents from the resulting offset, without
+                     * writing this command into the device. */
+                    pthread_mutex_lock(&file_lock);
+                    if (data_fd == -1)
+                        data_fd = open(DATAFILE, O_RDWR);
+                    if (data_fd == -1)
+                    {
+                        syslog(LOG_ERR, "open %s: %s", DATAFILE, strerror(errno));
+                    }
+                    else
+                    {
+                        struct aesd_seekto seekto;
+                        seekto.write_cmd = (uint32_t)seek_cmd;
+                        seekto.write_cmd_offset = (uint32_t)seek_offset;
+
+                        if (ioctl(data_fd, AESDCHAR_IOCSEEKTO, &seekto) == -1)
+                            syslog(LOG_ERR, "ioctl AESDCHAR_IOCSEEKTO: %s", strerror(errno));
+                        else
+                            send_device_contents(data_fd, fd);
+                    }
+                    pthread_mutex_unlock(&file_lock);
+
+                    start = nl + 1;
+                    continue;
+                }
+            }
+#endif
+
             /* Append to file and echo back, atomically w.r.t. other threads */
             pthread_mutex_lock(&file_lock);
+#if USE_AESD_CHAR_DEVICE
+            if (data_fd == -1)
+                data_fd = open(DATAFILE, O_RDWR);
+            if (data_fd == -1)
+            {
+                syslog(LOG_ERR, "open %s: %s", DATAFILE, strerror(errno));
+            }
+            else
+            {
+                if (write(data_fd, start, line_len) == -1)
+                    syslog(LOG_ERR, "write %s: %s", DATAFILE, strerror(errno));
+                if (lseek(data_fd, 0, SEEK_SET) == -1)
+                    syslog(LOG_ERR, "lseek %s: %s", DATAFILE, strerror(errno));
+                send_device_contents(data_fd, fd);
+            }
+#else
             FILE *f = fopen(DATAFILE, "a");
             if (!f)
             {
@@ -127,6 +207,7 @@ static void handle_connection(int fd, const char *client_ip)
                 fclose(f);
                 send_file(fd);
             }
+#endif
             pthread_mutex_unlock(&file_lock);
 
             start = nl + 1;
@@ -139,6 +220,11 @@ static void handle_connection(int fd, const char *client_ip)
         pkt_len = remaining;
         packet[pkt_len] = '\0';
     }
+
+#if USE_AESD_CHAR_DEVICE
+    if (data_fd != -1)
+        close(data_fd);
+#endif
 
     free(packet);
     syslog(LOG_INFO, "Closed connection from %s", client_ip);
