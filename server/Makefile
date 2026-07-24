@@ -1,8 +1,12 @@
 CROSS_COMPILE ?=
 CC = $(CROSS_COMPILE)gcc
 USE_AESD_CHAR_DEVICE ?= 1
-CFLAGS = -Wall -Wextra -g -pthread -I../aesd-char-driver -DUSE_AESD_CHAR_DEVICE=$(USE_AESD_CHAR_DEVICE)
-LDFLAGS = -pthread
+# Buildroot invokes this Makefile with CFLAGS/LDFLAGS set on the command
+# line, which unconditionally overrides a plain '=' assignment below. Use
+# 'override ... +=' so our required flags (in particular -I, needed to find
+# aesd_ioctl.h) survive regardless of what's passed in.
+override CFLAGS += -Wall -Wextra -g -pthread -I../aesd-char-driver -DUSE_AESD_CHAR_DEVICE=$(USE_AESD_CHAR_DEVICE)
+override LDFLAGS += -pthread
 
 TARGET = aesdsocket
 SRCS   = aesdsocket.c
